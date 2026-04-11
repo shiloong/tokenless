@@ -1,4 +1,4 @@
-%define anolis_release 2
+%define anolis_release 3
 %global debug_package %{nil}
 
 Name:           tokenless
@@ -86,6 +86,11 @@ if [ -x /usr/share/tokenless/scripts/install.sh ]; then
 fi
 
 %changelog
+* Sat Apr 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-3
+- Fix: Response compression not working issue
+  - Fixed `tokenless compress-response` command not taking effect
+  - Fixed `tokenless-compress-response.sh` hook script execution failure
+
 * Sat Apr 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-2
 - Unified install.sh script combining postinstall and preuninstall functionality
   - Single script handles: source install, RPM post-install, RPM pre-uninstall

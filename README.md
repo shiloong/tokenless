@@ -11,6 +11,7 @@ Token-Less 是一个用于 LLM schema 和响应压缩的 CLI 工具，帮助开�
 - **rtk**: Rust Token Killer - 高性能 CLI 代理，最小化 LLM token 消耗
 - **openclaw**: TypeScript 和 JSON 配置文件
 - **install.sh**: 安装脚本
+- **hooks/copilot-shell/**: copilot-shell hook 脚本（命令重写、响应压缩、schema 压缩）
 
 ## 系统要求
 
@@ -22,6 +23,7 @@ Token-Less 是一个用于 LLM schema 和响应压缩的 CLI 工具，帮助开�
 - **离线构建支持**: 源码包包含完整的 Rust 依赖 vendor 目录，可在无公网环境下编译
 - **双二进制**: 同时打包 tokenless 和 rtk 两个工具
 - **OpenClaw 集成**: 包含完整的 OpenClaw 插件配置和脚本
+- **cosh Hook 支持**: 包含 copilot-shell 的 PreToolUse/PostToolUse/BeforeModel 三个阶段的 hook 脚本
 
 ## 目录结构
 
@@ -32,44 +34,168 @@ Token-Less 是一个用于 LLM schema 和响应压缩的 CLI 工具，帮助开�
 └── tokenless-0.1.0.tar.gz    # 源码包
 ```
 
-## 构建 RPM 包
+## Building RPM Package
 
-### 1. 准备构建环境
+### 1. Prepare Build Environment
 
 ```bash
-# 安装必要的工具
+# Install necessary tools
 sudo yum install -y rpm-build cargo rust
 
-# 创建 rpmbuild 目录结构
+# Create rpmbuild directory structure
 mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 ```
 
-### 2. 复制文件到 rpmbuild 目录
+### 2. Copy Files to rpmbuild Directory
 
 ```bash
 cp tokenless.spec ~/rpmbuild/SPECS/
 cp tokenless-0.1.0.tar.gz ~/rpmbuild/SOURCES/
 ```
 
-### 3. 构建 RPM
+### 3. Build RPM
 
 ```bash
 cd ~/rpmbuild
 rpmbuild -ba SPECS/tokenless.spec
 ```
 
-构建完成后，RPM 包位于：
-- 二进制包：`~/rpmbuild/RPMS/x86_64/tokenless-0.1.0-1.alnx4.x86_64.rpm`
-- 源码包：`~/rpmbuild/SRPMS/tokenless-0.1.0-1.alnx4.src.rpm`
+After build completes, RPM packages are located at:
+- Binary package: `~/rpmbuild/RPMS/x86_64/tokenless-0.1.0-1.alnx4.x86_64.rpm`
+- Source package: `~/rpmbuild/SRPMS/tokenless-0.1.0-1.alnx4.src.rpm`
 
-## 安装 RPM 包
+## Installing RPM Package
 
 ```bash
-# 使用 yum/dnf 安装（推荐，自动解决依赖）
+# Install using yum/dnf (recommended, auto-resolves dependencies)
 sudo yum install ./tokenless-0.1.0-1.alnx4.x86_64.rpm
 
-# 或使用 rpm 命令
+# Or use rpm command
 sudo rpm -ivh tokenless-0.1.0-1.alnx4.x86_64.rpm
+```
+
+## Verifying Installation
+
+```bash
+# Check installed files
+rpm -ql tokenless
+
+# View package information
+rpm -qi tokenless
+
+# View changelog
+rpm -q --changelog tokenless
+```
+
+## Unified Install.sh Script
+
+The `install.sh` script is a unified installation and configuration script that supports multiple modes:
+
+### Usage
+
+```bash
+# Auto-detect installation source and install
+./install.sh
+
+# Force source installation
+./install.sh --source
+
+# RPM post-installation configuration (called by %post scriptlet)
+./install.sh --install
+
+# RPM pre-uninstallation cleanup, full uninstall (called by %preun scriptlet)
+./install.sh --uninstall
+
+# RPM pre-uninstallation cleanup, upgrade scenario (called by %preun scriptlet)
+./install.sh --upgrade
+
+# Show help
+./install.sh --help
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INSTALL_DIR` | `$HOME/.local/bin` | Installation directory for source install |
+| `OPENCLAW_DIR` | `$HOME/.openclaw/extensions/tokenless` | OpenClaw plugin directory |
+| `COPILOT_SHELL_HOOK_DIR` | `$HOME/.local/share/tokenless/hooks` | Hook scripts directory |
+
+## Post-Installation Configuration (RPM)
+
+After RPM installation, the `%post` scriptlet automatically:
+
+1. **Detect Configuration File**: `~/.copilot-shell/settings.json` or `~/.qwen-code/settings.json`
+2. **Register Hooks**: Adds PreToolUse, PostToolUse, and BeforeModel hooks
+3. **Hook Scripts Location**: `/usr/share/tokenless/hooks/copilot-shell/`
+
+To manually reconfigure:
+```bash
+/usr/share/tokenless/scripts/install.sh --install
+```
+
+### Hook Features
+
+| Hook Event | Feature | Token Savings |
+|----------|------|-----------|
+| PreToolUse | Command rewriting (RTK) | 60-90% |
+| PostToolUse | Response compression | ~26% |
+| BeforeModel | Schema compression | ~57% |
+
+### Manual Reconfiguration
+
+If you need to reconfigure hooks, run manually:
+
+```bash
+sudo /usr/share/tokenless/scripts/install.sh --install
+```
+
+### Manual Configuration
+
+If automatic configuration fails, manually add the following to `~/.copilot-shell/settings.json` or `~/.qwen-code/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/share/tokenless/hooks/copilot-shell/tokenless-rewrite.sh",
+            "name": "tokenless-rewrite",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/share/tokenless/hooks/copilot-shell/tokenless-compress-response.sh",
+            "name": "tokenless-compress-response",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "BeforeModel": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/share/tokenless/hooks/copilot-shell/tokenless-compress-schema.sh",
+            "name": "tokenless-compress-schema",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ## 验证安装
@@ -85,19 +211,28 @@ rpm -qi tokenless
 rpm -q --changelog tokenless
 ```
 
-## 已安装文件
+## Installed Files
 
-### 二进制文件
-- `/usr/bin/tokenless` - 主程序
-- `/usr/bin/rtk` - RTK 代理工具
+### Binaries
+- `/usr/bin/tokenless` - Main program
+- `/usr/bin/rtk` - RTK proxy tool
 
-### 共享文件
-- `/usr/share/tokenless/openclaw/index.ts` - OpenClaw TypeScript 入口
-- `/usr/share/tokenless/openclaw/openclaw.plugin.json` - OpenClaw 插件配置
-- `/usr/share/tokenless/openclaw/package.json` - Node.js 包配置
-- `/usr/share/tokenless/scripts/install.sh` - 安装脚本
+### Shared Files
+- `/usr/share/tokenless/openclaw/index.ts` - OpenClaw TypeScript entry
+- `/usr/share/tokenless/openclaw/openclaw.plugin.json` - OpenClaw plugin configuration
+- `/usr/share/tokenless/openclaw/package.json` - Node.js package configuration
+- `/usr/share/tokenless/scripts/install.sh` - Installation script
+- `/usr/share/tokenless/scripts/postinstall.sh` - Post-installation configuration script (auto-configures copilot-shell hooks)
+- `/usr/share/tokenless/scripts/preuninstall.sh` - Pre-uninstallation cleanup script
+- `/usr/share/tokenless/hooks/copilot-shell/tokenless-rewrite.sh` - Command rewriting hook
+- `/usr/share/tokenless/hooks/copilot-shell/tokenless-compress-response.sh` - Response compression hook
+- `/usr/share/tokenless/hooks/copilot-shell/tokenless-compress-schema.sh` - Schema compression hook
+- `/usr/share/tokenless/hooks/copilot-shell/README.md` - Hook usage documentation
 
-## Spec 文件说明
+### Automatically Configured
+After installation, hook scripts in `/usr/share/tokenless/hooks/copilot-shell/` are automatically registered in the user's copilot-shell configuration file (`~/.copilot-shell/settings.json` or `~/.qwen-code/settings.json`).
+
+## Spec File Description
 
 ```spec
 Name:           tokenless
@@ -108,38 +243,66 @@ License:        MIT
 BuildRequires:  cargo, rust >= 1.70
 ```
 
-## 版本历史
+## Version History
+
+### 0.1.0-2 (2026-04-11)
+- Unified install.sh script combining postinstall and preuninstall functionality
+  - Single script handles: source install, RPM post-install, RPM pre-uninstall
+  - Modes: --install, --uninstall, --upgrade, --uninstall-source, --help
+  - Backward compatible with existing RPM workflow
+- Added cosh (copilot-shell) hook support
+  - tokenless-rewrite.sh: Command rewriting hook (PreToolUse)
+  - tokenless-compress-response.sh: Response compression hook (PostToolUse)
+  - tokenless-compress-schema.sh: Schema compression hook (BeforeModel)
+- Automatic copilot-shell hook configuration via %post/%preun scriptlets
+  - Idempotent installation (no duplicate hooks on reinstall)
+  - Complete cleanup on uninstall (removes empty hooks arrays)
+  - Supports both ~/.copilot-shell/settings.json and ~/.qwen-code/settings.json
+  - Fail-open design: gracefully handles missing dependencies
+- Updated vendor dependencies (main project + RTK submodule)
 
 ### 0.1.0-1 (2026-04-10)
-- 初始版本
-- 包含 tokenless 和 rtk 两个二进制文件
-- 包含 openclaw TypeScript 和 JSON 配置文件
-- 包含 install.sh 安装脚本
+- Initial version
+- Includes tokenless and rtk binaries
+- Includes openclaw TypeScript and JSON configuration files
+- Includes install.sh script
 
-## 常见问题
+## Frequently Asked Questions
 
-### Q: 构建时遇到 Rust 版本问题？
-A: 确保安装了 Rust >= 1.70，可以使用 `rustup` 安装最新版本：
+### Q: Rust version issues during build?
+A: Ensure Rust >= 1.70 is installed. You can install the latest version using `rustup`:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### Q: 如何卸载？
-A: 使用以下命令卸载：
+### Q: How to uninstall?
+A: Use the following command to uninstall:
 ```bash
 sudo yum remove tokenless
-# 或
+# or
 sudo rpm -e tokenless
 ```
 
-## 联系方式
-Token-Less
-- 作者：林生
-- 邮箱：linyan.lin@alibaba-inc.com
-rpm package
-- 作者：Shile Zhang
-- 邮箱：shile.zhang@linux.alibaba.com
+The `%preun` scriptlet will automatically:
+1. Backup your settings.json (with timestamp)
+2. Remove tokenless hooks from configuration
+3. Clean up empty hooks arrays
 
-## 许可证
+To manually uninstall source installation:
+```bash
+./install.sh --uninstall-source
+```
+
+## Contact
+
+Token-Less
+- Author: Lin Sheng
+- Email: linyan.lin@alibaba-inc.com
+
+RPM Package
+- Author: Zhang Shile
+- Email: shile.zhang@linux.alibaba.com
+
+## License
 
 MIT License

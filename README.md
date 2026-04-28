@@ -18,7 +18,8 @@ Token-Less 是一个 LLM token 优化工具包，通过 Schema/Response 压缩�
 
 - Anolis OS 23 / Alibaba Cloud Linux 4
 - 或其他基于 RPM 的 Linux 发行版（RHEL/CentOS/Fedora）
-- Rust >= 1.88（toon 依赖 darling/image/time crate 需要）
+- RPM 依赖：jq, bash
+- 构建 RPM 需要：Rust >= 1.88（仅 `package-tokenless.sh` 编译阶段需要）
 
 ## 目录结构
 
@@ -26,8 +27,8 @@ Token-Less 是一个 LLM token 优化工具包，通过 Schema/Response 压缩�
 .
 ├── README.md              # 本说明文档
 ├── package-tokenless.sh   # 一键打包构建脚本
-├── tokenless.spec         # RPM spec 文件（从上游 spec.in 生成）
-└── tokenless-0.2.0.tar.gz # 源码包（含 RTK + TOON vendor）
+├── tokenless.spec         # RPM spec 文件
+└── tokenless-0.2.0.tar.gz # 源码包（含预编译二进制 + 资源文件）
 ```
 
 ## 构建 RPM
@@ -42,9 +43,9 @@ bash package-tokenless.sh
 1. 从 `https://github.com/alibaba/anolisa.git` 浅克隆（tag `tokenless/v0.2.0`）
 2. 初始化 rtk + toon submodule
 3. 从上游 Cargo.toml 解析版本号
-4. cargo vendor 下载 RTK 和 TOON 依赖（约 400 crates，支持离线构建）
-5. 提取 `src/tokenless/` 打包为 `tokenless-<version>.tar.gz`
-6. 使用上游 `tokenless.spec.in` 构建 RPM 和 SRPM
+4. 编译 tokenless、rtk、toon 三个二进制
+5. 打包二进制 + 资源文件为 `tokenless-<version>.tar.gz`
+6. 使用本地 `tokenless.spec` 构建 RPM 和 SRPM
 
 ### 手动构建
 
@@ -57,7 +58,7 @@ bash package-tokenless.sh
 
 # 或分步执行
 cp tokenless-0.2.0.tar.gz ~/rpmbuild/SOURCES/
-sed 's/@VERSION@/0.2.0/g' tokenless.spec > ~/rpmbuild/SPECS/tokenless.spec
+cp tokenless.spec ~/rpmbuild/SPECS/tokenless.spec
 cd ~/rpmbuild && rpmbuild -ba --nodeps SPECS/tokenless.spec
 ```
 
@@ -143,9 +144,11 @@ RPM 安装后自动执行：
 
 ## 离线构建
 
-源码包包含 RTK 和 TOON 的完整 vendor 依赖（约 400 crates），可在无公网环境下编译 RTK 和 TOON。主项目通过 Cargo.lock 保证依赖版本锁定。
+源码包包含预编译的二进制文件（tokenless、rtk、toon），RPM 构建阶段无需网络和 Rust 工具链。如需从源码重新编译，请在有网络的环境中运行 `package-tokenless.sh`。
 
 ## Spec 文件说明
+
+`tokenless.spec` 采用预编译二进制打包方式，RPM 构建阶段不执行编译：
 
 ```spec
 Name:           tokenless
@@ -153,7 +156,6 @@ Version:        0.2.0
 Release:        1.alnx4
 Summary:        LLM Token Optimization Toolkit
 License:        MIT and Apache-2.0
-BuildRequires:  cargo, rust >= 1.88
 Requires:       jq, bash
 ```
 

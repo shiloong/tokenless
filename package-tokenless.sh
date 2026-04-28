@@ -5,7 +5,16 @@
 set -e
 
 REPO_URL="https://github.com/alibaba/anolisa.git"
-TAG="hook/v0.2.0"
+# 默认拉取 main 分支最新代码；可通过环境变量指定 TAG 或 BRANCH
+BRANCH="${BRANCH:-main}"
+TAG="${TAG:-}"
+if [ -n "${TAG}" ]; then
+    CLONE_REF="${TAG}"
+    IS_TAG=true
+else
+    CLONE_REF="${BRANCH}"
+    IS_TAG=false
+fi
 WORKSPACE_DIR="$PWD"
 TEMP_DIR="${WORKSPACE_DIR}/.tokenless-build-$$"
 OUTPUT_DIR="${WORKSPACE_DIR}/packages"
@@ -28,7 +37,7 @@ trap cleanup EXIT
 main() {
     log_info "=========================================="
     log_info "Token-Less RPM 打包（本地编译模式）"
-    log_info "源码: ${REPO_URL} @ ${TAG}"
+    log_info "源码: ${REPO_URL} @ ${CLONE_REF}"
     log_info "=========================================="
 
     if ! command -v cargo &> /dev/null; then
@@ -40,10 +49,10 @@ main() {
     mkdir -p "${OUTPUT_DIR}" "${TEMP_DIR}"
 
     # === 1. 克隆源码 ===
-    log_info "步骤 1: 克隆 anolisa (tag=${TAG})..."
+    log_info "步骤 1: 克隆 anolisa (${REF})..."
     cd "${TEMP_DIR}"
-    git clone --branch "${TAG}" --depth 1 "${REPO_URL}" anolisa || {
-        log_error "无法克隆 ${REPO_URL} @ ${TAG}"
+    git clone --branch "${CLONE_REF}" --depth 1 "${REPO_URL}" anolisa || {
+        log_error "无法克隆 ${REPO_URL} @ ${CLONE_REF}"
         exit 1
     }
 

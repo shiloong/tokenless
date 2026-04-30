@@ -1,4 +1,4 @@
-%define anolis_release 2
+%define anolis_release 4
 %global debug_package %{nil}
 
 Name:           tokenless
@@ -11,13 +11,15 @@ URL:            https://github.com/alibaba/anolisa
 Source0:        %{name}-%{version}.tar.gz
 ExcludeArch:    aarch64
 
+# Pre-compiled binaries — no build dependencies needed
+
 # Runtime dependencies
 Requires:       jq
 Requires:       bash
 
 %description
 Token-Less is an LLM token optimization toolkit that significantly reduces token
-consumption through Schema/Response Compression, TOON Context Compression, and
+consumption through Schema/Response Compression, TOON Context Compression,
 Command Rewriting strategies.
 
 Core Features:
@@ -38,16 +40,20 @@ Note: OpenClaw plugin and copilot-shell hooks are available under
 %prep
 %setup -q -n tokenless
 
+%build
+# Pre-compiled binaries — no build step needed
+
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_bindir}
+mkdir -p %{buildroot}%{_libexecdir}/tokenless
 mkdir -p %{buildroot}%{_datadir}/tokenless
 mkdir -p %{buildroot}%{_docdir}/tokenless
 
-# Install pre-compiled binaries
+# Install pre-compiled binaries — tokenless to /usr/bin, helpers to /usr/libexec/tokenless
 install -m 0755 bin/tokenless %{buildroot}%{_bindir}/tokenless
-install -m 0755 bin/rtk %{buildroot}%{_bindir}/rtk
-install -m 0755 bin/toon %{buildroot}%{_bindir}/toon
+install -m 0755 bin/rtk %{buildroot}%{_libexecdir}/tokenless/rtk
+install -m 0755 bin/toon %{buildroot}%{_libexecdir}/tokenless/toon
 
 # Install documentation
 install -m 0644 docs/tokenless-user-manual-en.md %{buildroot}%{_docdir}/tokenless/
@@ -73,8 +79,9 @@ install -m 0755 scripts/install.sh %{buildroot}%{_datadir}/tokenless/scripts/
 %files
 %defattr(0644,root,root,0755)
 %attr(0755,root,root) %{_bindir}/tokenless
-%attr(0755,root,root) %{_bindir}/rtk
-%attr(0755,root,root) %{_bindir}/toon
+%dir %attr(0755,root,root) %{_libexecdir}/tokenless
+%attr(0755,root,root) %{_libexecdir}/tokenless/rtk
+%attr(0755,root,root) %{_libexecdir}/tokenless/toon
 %doc %{_docdir}/tokenless/LICENSE
 %doc %{_docdir}/tokenless/response-compression.md
 %doc %{_docdir}/tokenless/tokenless-user-manual-en.md
@@ -95,63 +102,46 @@ if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
 fi
 
 %preun
-if [ $1 -eq 0 ] && [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
-    %{_datadir}/tokenless/scripts/install.sh --uninstall || true
+if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
+    if [ $1 -eq 1 ]; then
+        %{_datadir}/tokenless/scripts/install.sh --upgrade || true
+    else
+        %{_datadir}/tokenless/scripts/install.sh --uninstall || true
+    fi
 fi
 
 %changelog
-* Tue Apr 28 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.2.0-2
-- Restructure dirs: /usr/share/tokenless/{adapters/{openclaw,cosh}}
-- Fix upstream reference, pull from main branch latest
-- Refresh tarball and update README
+* Wed Apr 30 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.2.0-4
+- Switch to pre-compiled binary packaging (bin/ directory)
+- Fix install paths: use canonical adapters/{openclaw,cosh}/ structure
+- fix: preserve tool result message structure in TOON encoding
+
+* Wed Apr 29 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.2.0-3
+- build: align install paths with FHS
+
+* Mon Apr 27 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.2.0-2
+- feat(hook): add copilot-shell hooks for command rewriting and compression
 
 * Sun Apr 26 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.2.0-1
 - Bump to v0.2.0 with new features and fixes
-  - feat: add TOON context compression support
-  - feat: add compression stats with auto-record from real data
-  - fix: skip compression for skill and content-retrieval tools
-  - chore: upgrade Rust edition to 2024
-- Switch to pre-compiled binary packaging (tokenless + rtk + toon)
-- ExcludeArch: aarch64
 
 * Sat Apr 25 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-6
 - Integrate TOON into response compression pipeline
-  - Build toon binary from third_party/toon submodule
-  - Install toon binary to %{_bindir}/toon
-  - copilot-shell hook: tokenless-compress-response.sh runs sequential pipeline
-  - OpenClaw plugin: toon_compression_enabled option
-  - Expected combined savings: 30-60% on structured JSON data
 
 * Sat Apr 25 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-5
 - Add compression stats: auto-record real before/after data from all modes
-- Clean ~/.tokenless on RPM uninstall
 
 * Sat Apr 25 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-4
 - Fix: skip compression for content-retrieval tools and skill files
 
 * Tue Apr 21 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-3
 - Refactor stats system for comprehensive compression metrics tracking
-- Fix: Response compression not working issue
-  - Fixed `tokenless compress-response` command not taking effect
-  - Fixed `tokenless-compress-response.sh` hook script execution failure
+
+* Sat Apr 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-3
+- Fix: response compression command not working
 
 * Sat Apr 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-2
-- Unified install.sh script combining postinstall and preuninstall functionality
-  - Single script handles: source install, RPM post-install, RPM pre-uninstall
-  - Modes: --install, --uninstall, --upgrade, --uninstall-source, --help
-  - Backward compatible with existing RPM workflow
-- Added cosh (copilot-shell) hook support
-  - tokenless-compress-schema.sh: Compress LLM schema for cosh
-  - tokenless-compress-response.sh: Compress LLM response for cosh
-  - tokenless-rewrite.sh: Rewrite requests for cosh integration
-- Automatic copilot-shell hook configuration via %post/%preun scriptlets
-  - Supports both ~/.copilot-shell/settings.json and ~/.qwen-code/settings.json
-  - Idempotent installation (no duplicate hooks on reinstall)
-  - Complete cleanup on uninstall (removes empty hooks arrays)
-  - Fail-open design: gracefully handles missing dependencies
+- Add copilot-shell hooks and unified install script
 
 * Fri Apr 10 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-1
-- Initial package for tokenless 0.1.0
-- Include rtk (Rust Token Killer) binary
-- Include openclaw TypeScript and JSON files
-- Include install.sh script
+- Initial package

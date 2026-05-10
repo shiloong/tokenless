@@ -5,15 +5,33 @@
 set -e
 
 REPO_URL="https://github.com/alibaba/anolisa.git"
-# 默认拉取 main 分支最新代码；可通过环境变量指定 TAG 或 BRANCH
-BRANCH="${BRANCH:-main}"
+# 通过环境变量指定 TAG（如 tokenless/v0.3.0）或 VERSION（如 0.3.0）
+# 未指定时从 Cargo.toml 解析版本号，自动推断 release 分支
 TAG="${TAG:-}"
+VERSION_HINT="${VERSION:-}"
 if [ -n "${TAG}" ]; then
     CLONE_REF="${TAG}"
-    IS_TAG=true
 else
-    CLONE_REF="${BRANCH}"
-    IS_TAG=false
+    if [ -n "${VERSION_HINT}" ]; then
+        MAJOR=$(echo "${VERSION_HINT}" | cut -d. -f1)
+        MINOR=$(echo "${VERSION_HINT}" | cut -d. -f2)
+        CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}"
+    else
+        # 解析本地 anolisa Cargo.toml 推断版本，回退到 main
+        LOCAL_CARGO="/root/anolisa/src/tokenless/Cargo.toml"
+        if [ -f "${LOCAL_CARGO}" ]; then
+            V=$(grep -E 'version\s*=' "${LOCAL_CARGO}" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
+            if [ -n "${V}" ]; then
+                MAJOR=$(echo "${V}" | cut -d. -f1)
+                MINOR=$(echo "${V}" | cut -d. -f2)
+                CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}"
+            else
+                CLONE_REF="main"
+            fi
+        else
+            CLONE_REF="main"
+        fi
+    fi
 fi
 WORKSPACE_DIR="$PWD"
 TEMP_DIR="${WORKSPACE_DIR}/.tokenless-build-$$"
@@ -49,7 +67,7 @@ main() {
     mkdir -p "${OUTPUT_DIR}" "${TEMP_DIR}"
 
     # === 1. 克隆源码 ===
-    log_info "步骤 1: 克隆 anolisa (${REF})..."
+    log_info "步骤 1: 克隆 anolisa (${CLONE_REF})..."
     cd "${TEMP_DIR}"
     git clone --branch "${CLONE_REF}" --depth 1 "${REPO_URL}" anolisa || {
         log_error "无法克隆 ${REPO_URL} @ ${CLONE_REF}"
@@ -64,7 +82,7 @@ main() {
     }
 
     # === 3. 解析版本号 ===
-    VERSION=$(grep -E '^version[[:space:]]*=' "src/tokenless/Cargo.toml" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
+    VERSION=$(grep -E 'version\s*=' "src/tokenless/Cargo.toml" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
     if [ -z "$VERSION" ]; then
         log_error "无法从 Cargo.toml 解析版本号"
         exit 1
@@ -99,10 +117,14 @@ main() {
     cp "${SRCDIR}/third_party/toon/target/release/toon" "${PKG}/bin/"
 
     cp -r "${SRCDIR}/openclaw" "${PKG}/"
-    cp -r "${SRCDIR}/hooks" "${PKG}/"
+    cp -r "${SRCDIR}/cosh-extension" "${PKG}/"
+    cp -r "${SRCDIR}/core" "${PKG}/"
     cp -r "${SRCDIR}/scripts" "${PKG}/"
     cp -r "${SRCDIR}/docs" "${PKG}/"
     cp "${SRCDIR}/LICENSE" "${PKG}/"
+
+    # Remove __pycache__ from cosh-extension hooks
+    rm -rf "${PKG}/cosh-extension/hooks/__pycache__"
 
     log_info "打包目录: ${PKG}"
     ls "${PKG}/bin/"

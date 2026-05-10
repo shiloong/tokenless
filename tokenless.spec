@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.3.0
+Version:        0.3.1
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -136,6 +136,9 @@ if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
 fi
 
 %changelog
+* Sun May 10 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.1-1
+- fix(openclaw): add activation onCapabilities hook for high-version plugin compatibility
+
 * Sun May 10 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.0-1
 - Bump to v0.3.0 with tool-ready env pre-check and multiple fixes
   - feat: add tool-ready 4-phase environment pre-check with cosh extension integration

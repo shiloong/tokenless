@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.3.1
+Version:        0.3.2
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -136,6 +136,14 @@ if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
 fi
 
 %changelog
+* Wed May 13 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.2-1
+- Bump to v0.3.2 with multiple fixes
+
+* Wed May 13 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.1-2
+- fix(tokenless): add schema migration for before_output/after_output columns
+- fix(tokenless): use official CLI for openclaw plugin and fix RPM install/uninstall
+- fix(tokenless): redesign tool-ready for 4-category spec model and fix env-check bugs
+
 * Sun May 10 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.1-1
 - fix(openclaw): add activation onCapabilities hook for high-version plugin compatibility
 

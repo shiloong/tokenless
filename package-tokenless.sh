@@ -15,7 +15,7 @@ else
     if [ -n "${VERSION_HINT}" ]; then
         MAJOR=$(echo "${VERSION_HINT}" | cut -d. -f1)
         MINOR=$(echo "${VERSION_HINT}" | cut -d. -f2)
-        CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}"
+        CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}.y"
     else
         # 解析本地 anolisa Cargo.toml 推断版本，回退到 main
         LOCAL_CARGO="/root/anolisa/src/tokenless/Cargo.toml"
@@ -24,7 +24,7 @@ else
             if [ -n "${V}" ]; then
                 MAJOR=$(echo "${V}" | cut -d. -f1)
                 MINOR=$(echo "${V}" | cut -d. -f2)
-                CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}"
+                CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}.y"
             else
                 CLONE_REF="main"
             fi
@@ -117,6 +117,19 @@ main() {
     cp "${SRCDIR}/third_party/toon/target/release/toon" "${PKG}/bin/"
 
     cp -r "${SRCDIR}/openclaw" "${PKG}/"
+
+    # Compile openclaw index.ts -> index.js (esbuild or sed fallback)
+    log_info "步骤 7.1: 编译 openclaw index.ts -> index.js..."
+    if command -v npx &> /dev/null; then
+        npx --yes esbuild "${PKG}/openclaw/index.ts" --bundle --platform=node --format=esm --outfile="${PKG}/openclaw/index.js" 2>/dev/null \
+            && { log_info "  index.js 编译完成 (esbuild)"; rm -f "${PKG}/openclaw/index.ts"; } \
+            || { sed 's/: any//g; s/: string//g; s/: boolean | null/: any/g; s/: Record<string, unknown>//g; s/: { [^}]*}//g' "${PKG}/openclaw/index.ts" > "${PKG}/openclaw/index.js" \
+            && log_info "  index.js 编译完成 (sed fallback)"; rm -f "${PKG}/openclaw/index.ts"; }
+    else
+        sed 's/: any//g; s/: string//g; s/: boolean | null/: any/g; s/: Record<string, unknown>//g; s/: { [^}]*}//g' "${PKG}/openclaw/index.ts" > "${PKG}/openclaw/index.js" \
+            && { log_info "  index.js 编译完成 (sed fallback)"; rm -f "${PKG}/openclaw/index.ts"; }
+    fi
+
     cp -r "${SRCDIR}/cosh-extension" "${PKG}/"
     cp -r "${SRCDIR}/core" "${PKG}/"
     cp -r "${SRCDIR}/scripts" "${PKG}/"

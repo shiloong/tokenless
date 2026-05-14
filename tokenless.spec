@@ -1,4 +1,4 @@
-%define anolis_release 1
+%define anolis_release 2
 %global debug_package %{nil}
 
 Name:           tokenless
@@ -73,7 +73,7 @@ mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands
 mkdir -p %{buildroot}%{_datadir}/tokenless/scripts
 
-install -m 0644 openclaw/index.ts %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
+install -m 0644 openclaw/index.js %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
 install -m 0644 openclaw/openclaw.plugin.json %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
 install -m 0644 openclaw/package.json %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
 install -m 0644 openclaw/README.md %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
@@ -136,6 +136,9 @@ if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
 fi
 
 %changelog
+* Thu May 14 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.2-2
+- fix: compile openclaw index.ts to index.js during packaging
+
 * Wed May 13 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.2-1
 - Bump to v0.3.2 with multiple fixes
 

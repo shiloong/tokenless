@@ -1,8 +1,8 @@
-%define anolis_release 2
+%define anolis_release 1
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.3.2
+Version:        0.4.0
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -34,8 +34,11 @@ The package includes:
 - rtk: High-performance CLI proxy for command rewriting (Apache-2.0 licensed)
 - toon: JSON to TOON format encoder/decoder for LLM token optimization
 
-Note: OpenClaw plugin is available under /usr/share/tokenless/adapters/.
+Note: OpenClaw plugin is available under /usr/share/anolisa/adapters/tokenless/openclaw/.
 Copilot-shell extension is auto-discovered from /usr/share/anolisa/extensions/tokenless/.
+Hermes Agent plugin (response compression, TOON encoding, command rewriting via RTK,
+and Tool Ready) is available under /usr/share/anolisa/adapters/tokenless/hermes/.
+Run the install script to register with Hermes: hermes/scripts/install.sh
 
 %prep
 %setup -q -n tokenless
@@ -43,18 +46,22 @@ Copilot-shell extension is auto-discovered from /usr/share/anolisa/extensions/to
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_bindir}
-mkdir -p %{buildroot}%{_libexecdir}/tokenless
-mkdir -p %{buildroot}%{_datadir}/tokenless
+mkdir -p %{buildroot}%{_libexecdir}/anolisa/tokenless
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/hooks
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/commands
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/dist
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts
 mkdir -p %{buildroot}%{_docdir}/tokenless
 
-# Install pre-compiled binaries — tokenless to /usr/bin, helpers to /usr/libexec
+# Install pre-compiled binaries — tokenless to /usr/bin, helpers to /usr/libexec/anolisa/tokenless
 install -m 0755 bin/tokenless %{buildroot}%{_bindir}/tokenless
-install -m 0755 bin/rtk %{buildroot}%{_libexecdir}/tokenless/rtk
-install -m 0755 bin/toon %{buildroot}%{_libexecdir}/tokenless/toon
+install -m 0755 bin/rtk %{buildroot}%{_libexecdir}/anolisa/tokenless/rtk
+install -m 0755 bin/toon %{buildroot}%{_libexecdir}/anolisa/tokenless/toon
 
 # Create symlinks so rtk and toon are discoverable via PATH
-ln -sf ../libexec/tokenless/rtk %{buildroot}%{_bindir}/rtk
-ln -sf ../libexec/tokenless/toon %{buildroot}%{_bindir}/toon
+ln -sf ../libexec/anolisa/tokenless/rtk %{buildroot}%{_bindir}/rtk
+ln -sf ../libexec/anolisa/tokenless/toon %{buildroot}%{_bindir}/toon
 
 # Install documentation
 install -m 0644 docs/tokenless-user-manual-en.md %{buildroot}%{_docdir}/tokenless/
@@ -62,80 +69,154 @@ install -m 0644 docs/tokenless-user-manual-zh.md %{buildroot}%{_docdir}/tokenles
 install -m 0644 docs/response-compression.md %{buildroot}%{_docdir}/tokenless/
 install -m 0644 LICENSE %{buildroot}%{_docdir}/tokenless/
 
-# Install core env-check (shared across all agents)
-mkdir -p %{buildroot}%{_datadir}/tokenless/core/env-check
-install -m 0644 core/env-check/tool-ready-spec.json %{buildroot}%{_datadir}/tokenless/core/env-check/
-install -m 0755 core/env-check/tokenless-env-fix.sh %{buildroot}%{_datadir}/tokenless/core/env-check/
+# Install adapter bundle (common hooks/spec + openclaw)
+install -m 0644 adapters/tokenless/manifest.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/
+install -m 0644 adapters/tokenless/common/tool-ready-spec.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
+install -m 0755 adapters/tokenless/common/tokenless-env-fix.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
+install -m 0644 adapters/tokenless/common/cosh-extension.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
+install -m 0755 adapters/tokenless/common/hooks/*.py %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/hooks/
+install -m 0755 adapters/tokenless/common/hooks/*.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/hooks/
+install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/commands/
+install -m 0755 adapters/tokenless/openclaw/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/
+install -m 0755 adapters/tokenless/openclaw/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/
+install -m 0755 adapters/tokenless/openclaw/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/
+install -m 0644 adapters/tokenless/openclaw/dist/index.js %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/dist/
+install -m 0644 adapters/tokenless/openclaw/openclaw.plugin.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/
+install -m 0644 adapters/tokenless/openclaw/package.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/
 
-# Install OpenClaw adapter and cosh extension (copilot-shell auto-discovery)
-mkdir -p %{buildroot}%{_datadir}/tokenless/adapters/openclaw
+# Install Hermes Agent plugin (Python hooks + install scripts)
+install -m 0755 adapters/tokenless/hermes/__init__.py %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/
+install -m 0644 adapters/tokenless/hermes/plugin.yaml %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/
+install -m 0755 adapters/tokenless/hermes/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/
+install -m 0755 adapters/tokenless/hermes/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/
+install -m 0755 adapters/tokenless/hermes/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/
+
+# Install cosh extension for auto-discovery at /usr/share/anolisa/extensions/tokenless/
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands
-mkdir -p %{buildroot}%{_datadir}/tokenless/scripts
-
-install -m 0644 openclaw/index.js %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
-install -m 0644 openclaw/openclaw.plugin.json %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
-install -m 0644 openclaw/package.json %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
-install -m 0644 openclaw/README.md %{buildroot}%{_datadir}/tokenless/adapters/openclaw/
-
-install -m 0644 cosh-extension/cosh-extension.json %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
-install -m 0644 cosh-extension/COPILOT.md %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
-install -m 0644 cosh-extension/README.md %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
-install -m 0755 cosh-extension/hooks/*.py %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
-install -m 0755 cosh-extension/hooks/*.sh %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
-install -m 0644 cosh-extension/commands/*.toml %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands/
-
-install -m 0755 scripts/install.sh %{buildroot}%{_datadir}/tokenless/scripts/
+install -m 0644 adapters/tokenless/common/cosh-extension.json %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
+install -m 0644 adapters/tokenless/common/tool-ready-spec.json %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
+install -m 0755 adapters/tokenless/common/tokenless-env-fix.sh %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
+install -m 0755 adapters/tokenless/common/hooks/*.py %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
+install -m 0755 adapters/tokenless/common/hooks/*.sh %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
+install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands/
 
 %files
 %defattr(0644,root,root,0755)
 %attr(0755,root,root) %{_bindir}/tokenless
 %{_bindir}/rtk
 %{_bindir}/toon
-%dir %attr(0755,root,root) %{_libexecdir}/tokenless
-%attr(0755,root,root) %{_libexecdir}/tokenless/rtk
-%attr(0755,root,root) %{_libexecdir}/tokenless/toon
+%dir %attr(0755,root,root) %{_libexecdir}/anolisa/tokenless
+%attr(0755,root,root) %{_libexecdir}/anolisa/tokenless/rtk
+%attr(0755,root,root) %{_libexecdir}/anolisa/tokenless/toon
 %doc %{_docdir}/tokenless/LICENSE
 %doc %{_docdir}/tokenless/response-compression.md
 %doc %{_docdir}/tokenless/tokenless-user-manual-en.md
 %doc %{_docdir}/tokenless/tokenless-user-manual-zh.md
-%dir %{_datadir}/tokenless
-%dir %{_datadir}/tokenless/core
-%dir %{_datadir}/tokenless/core/env-check
-%dir %{_datadir}/tokenless/scripts
-%dir %{_datadir}/tokenless/adapters
-%dir %{_datadir}/tokenless/adapters/openclaw
 %dir %{_datadir}/anolisa
+%dir %{_datadir}/anolisa/adapters
+%dir %{_datadir}/anolisa/adapters/tokenless
+%dir %{_datadir}/anolisa/adapters/tokenless/common
+%dir %{_datadir}/anolisa/adapters/tokenless/common/hooks
+%dir %{_datadir}/anolisa/adapters/tokenless/common/commands
+%dir %{_datadir}/anolisa/adapters/tokenless/openclaw
+%dir %{_datadir}/anolisa/adapters/tokenless/openclaw/scripts
+%dir %{_datadir}/anolisa/adapters/tokenless/openclaw/dist
+%dir %{_datadir}/anolisa/adapters/tokenless/hermes
+%dir %{_datadir}/anolisa/adapters/tokenless/hermes/scripts
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/manifest.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tool-ready-spec.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/cosh-extension.json
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tokenless-env-fix.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/hooks/*.py
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/hooks/*.sh
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/commands/tokenless-stats.toml
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/detect.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/install.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/uninstall.sh
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/dist/index.js
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/openclaw.plugin.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/package.json
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/__init__.py
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/plugin.yaml
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/scripts/detect.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/scripts/install.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/scripts/uninstall.sh
+# Cosh extension — auto-discovered from /usr/share/anolisa/extensions/
 %dir %{_datadir}/anolisa/extensions
 %dir %{_datadir}/anolisa/extensions/tokenless
 %dir %{_datadir}/anolisa/extensions/tokenless/hooks
 %dir %{_datadir}/anolisa/extensions/tokenless/commands
-%attr(0755,root,root) %{_datadir}/tokenless/scripts/install.sh
-%attr(0644,root,root) %{_datadir}/tokenless/core/env-check/tool-ready-spec.json
-%attr(0755,root,root) %{_datadir}/tokenless/core/env-check/tokenless-env-fix.sh
+%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/cosh-extension.json
+%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/tool-ready-spec.json
+%attr(0755,root,root) %{_datadir}/anolisa/extensions/tokenless/tokenless-env-fix.sh
 %attr(0755,root,root) %{_datadir}/anolisa/extensions/tokenless/hooks/*.py
 %attr(0755,root,root) %{_datadir}/anolisa/extensions/tokenless/hooks/*.sh
-%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/cosh-extension.json
-%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/COPILOT.md
-%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/README.md
-%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/commands/*.toml
-%{_datadir}/tokenless/adapters/openclaw/*
+%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/commands/tokenless-stats.toml
 
 %post
-if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
-    %{_datadir}/tokenless/scripts/install.sh --install || true
-fi
+# Clean up stale files from old install.sh (pre-FHS refactor).
+for stale_bin in "$HOME/.local/bin/tokenless" "$HOME/.local/bin/rtk" "$HOME/.local/bin/rtk.bak" "$HOME/.local/bin/toon"; do
+    rm -f "$stale_bin" 2>/dev/null || true
+done
+rm -f "$HOME/.local/lib/anolisa/tokenless/rtk" 2>/dev/null || true
+rm -f "$HOME/.local/lib/anolisa/tokenless/toon" 2>/dev/null || true
+rm -rf "$HOME/.local/share/anolisa/adapters/tokenless" 2>/dev/null || true
+rmdir "$HOME/.local/lib/anolisa/tokenless" 2>/dev/null || true
+rmdir "$HOME/.local/lib/anolisa" 2>/dev/null || true
+rmdir "$HOME/.local/lib" 2>/dev/null || true
+# Remove stale user-level cosh extension (system-level takes priority)
+rm -rf "$HOME/.copilot-shell/extensions/tokenless" 2>/dev/null || true
+# Clean up stale hermes-plugin dir (renamed to hermes/ with scripts)
+rm -rf "/usr/share/anolisa/adapters/tokenless/hermes-plugin" 2>/dev/null || true
+rm -rf "$HOME/.local/share/anolisa/adapters/tokenless/hermes-plugin" 2>/dev/null || true
+# Clean up stale paths from v0.3.2 RPM layout (libexec/tokenless -> libexec/anolisa/tokenless)
+rm -rf "/usr/libexec/tokenless" 2>/dev/null || true
+rm -rf "/usr/share/tokenless" 2>/dev/null || true
+hash -r 2>/dev/null || true
 
 %preun
-if [ -x %{_datadir}/tokenless/scripts/install.sh ]; then
-    if [ $1 -eq 1 ]; then
-        %{_datadir}/tokenless/scripts/install.sh --upgrade || true
-    else
-        %{_datadir}/tokenless/scripts/install.sh --uninstall || true
+# On uninstall ($1=0): clean openclaw plugin and stale config entries
+if [ $1 -eq 0 ]; then
+    PLUGIN_DIR="$HOME/.openclaw/extensions/tokenless-openclaw"
+    if [ -d "$PLUGIN_DIR" ]; then
+        if command -v openclaw &>/dev/null; then
+            openclaw plugins uninstall tokenless-openclaw --force || true
+        else
+            rm -rf "$PLUGIN_DIR" || true
+        fi
+    fi
+    # Remove stale config entries from openclaw.json even if openclaw CLI is unavailable
+    OPENCLAW_CFG="$HOME/.openclaw/openclaw.json"
+    if [ -f "$OPENCLAW_CFG" ] && command -v jq &>/dev/null; then
+        jq '(.plugins.allow // [] | map(select(. != "tokenless-openclaw"))) as $allow |
+            (.plugins.entries // {} | del(.["tokenless-openclaw"])) as $entries |
+            .plugins.allow = $allow | .plugins.entries = $entries' \
+            "$OPENCLAW_CFG" > "${OPENCLAW_CFG}.tmp" && mv "${OPENCLAW_CFG}.tmp" "$OPENCLAW_CFG"
+    fi
+    # Uninstall hermes plugin (disable + remove via hermes CLI or manual cleanup)
+    HERMES_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/uninstall.sh"
+    if [ -f "$HERMES_SCRIPT" ]; then
+        bash "$HERMES_SCRIPT" || true
+    elif [ -d "$HOME/.hermes/plugins/tokenless" ]; then
+        rm -rf "$HOME/.hermes/plugins/tokenless" 2>/dev/null || true
     fi
 fi
 
 %changelog
+* Mon May 25 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.4.0-1
+- feat(tokenless): add hermes agent plugin
+- refactor(tokenless): align FHS paths, restructure adapter dir, remove install.sh
+- refactor(tokenless): support staged installs
+- fix(tokenless): correct 5 bugs in stats, naming, SQL, paths and permissions
+- fix(tokenless): address code review findings across schema, env-check, hooks, and plugin
+- fix(tokenless): security hardening & critical algorithm correctness
+- fix(tokenless): behavioral correctness & logic fixes
+- fix(tokenless): dedup, dead code removal & cosmetic cleanup
+- fix(tokenless): support Debian/Ubuntu FHS paths and harden binary resolution
+- fix(tokenless): build OpenClaw plugin to dist/index.js
+- Align RPM install paths with upstream FHS layout (/usr/libexec/anolisa/, /usr/share/anolisa/adapters/)
+
 * Thu May 14 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.3.2-2
 - fix: compile openclaw index.ts to index.js during packaging
 
@@ -193,27 +274,10 @@ fi
 
 * Tue Apr 21 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-3
 - Refactor stats system for comprehensive compression metrics tracking
-- Fix: Response compression not working issue
-  - Fixed `tokenless compress-response` command not taking effect
-  - Fixed `tokenless-compress-response.sh` hook script execution failure
+- Fix: response compression command not working
 
 * Sat Apr 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-2
-- Unified install.sh script combining postinstall and preuninstall functionality
-  - Single script handles: source install, RPM post-install, RPM pre-uninstall
-  - Modes: --install, --uninstall, --upgrade, --uninstall-source, --help
-  - Backward compatible with existing RPM workflow
-- Added cosh (copilot-shell) hook support
-  - tokenless-compress-schema.sh: Compress LLM schema for cosh
-  - tokenless-compress-response.sh: Compress LLM response for cosh
-  - tokenless-rewrite.sh: Rewrite requests for cosh integration
-- Automatic copilot-shell hook configuration via %post/%preun scriptlets
-  - Supports both ~/.copilot-shell/settings.json and ~/.qwen-code/settings.json
-  - Idempotent installation (no duplicate hooks on reinstall)
-  - Complete cleanup on uninstall (removes empty hooks arrays)
-  - Fail-open design: gracefully handles missing dependencies
+- Add copilot-shell hooks and unified install script
 
 * Fri Apr 10 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.1.0-1
-- Initial package for tokenless 0.1.0
-- Include rtk (Rust Token Killer) binary
-- Include openclaw TypeScript and JSON files
-- Include install.sh script
+- Initial package

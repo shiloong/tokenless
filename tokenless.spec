@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.4.0
+Version:        0.4.1
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -204,6 +204,11 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Wed May 27 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.4.1-1
+- fix(tokenless): derive adapter plugin versions from Cargo.toml instead of hardcoding
+- fix(tokenless): normalize adapter version numbers to 0.4.0
+- fix(tokenless): derive Makefile version from Cargo.toml, fix spec changelog weekday
+
 * Mon May 25 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.4.0-1
 - feat(tokenless): add hermes agent plugin
 - refactor(tokenless): align FHS paths, restructure adapter dir, remove install.sh

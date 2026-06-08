@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.4.1
+Version:        0.5.0
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -39,6 +39,10 @@ Copilot-shell extension is auto-discovered from /usr/share/anolisa/extensions/to
 Hermes Agent plugin (response compression, TOON encoding, command rewriting via RTK,
 and Tool Ready) is available under /usr/share/anolisa/adapters/tokenless/hermes/.
 Run the install script to register with Hermes: hermes/scripts/install.sh
+Claude Code plugin (RTK command rewriting, response/TOON compression, and Tool Ready
+environment pre-check) is available under /usr/share/anolisa/adapters/tokenless/claude-code/.
+Register it with the official `claude plugin marketplace add` / `claude plugin install`
+CLI, or run the install script: claude-code/scripts/install.sh
 
 %prep
 %setup -q -n tokenless
@@ -52,6 +56,15 @@ mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/commands
 mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts
 mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/dist
 mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/.qoder-plugin
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/scripts
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/commands
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/.claude-plugin
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/hooks
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/.codex-plugin
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/hooks
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts
 mkdir -p %{buildroot}%{_docdir}/tokenless
 
 # Install pre-compiled binaries — tokenless to /usr/bin, helpers to /usr/libexec/anolisa/tokenless
@@ -91,6 +104,35 @@ install -m 0755 adapters/tokenless/hermes/scripts/detect.sh %{buildroot}%{_datad
 install -m 0755 adapters/tokenless/hermes/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/
 install -m 0755 adapters/tokenless/hermes/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/
 
+# Install Qoder CLI plugin (manifest + hooks.json + install scripts)
+install -m 0644 adapters/tokenless/qoder/.qoder-plugin/plugin.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/.qoder-plugin/
+install -m 0644 adapters/tokenless/qoder/hooks.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/
+install -m 0644 adapters/tokenless/qoder/commands/tokenless-stats.toml %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/commands/
+install -m 0755 adapters/tokenless/qoder/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/scripts/
+install -m 0755 adapters/tokenless/qoder/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/scripts/
+install -m 0755 adapters/tokenless/qoder/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qoder/scripts/
+
+# Install Claude Code plugin (marketplace + plugin manifest + wrapper hook + scripts)
+install -m 0644 adapters/tokenless/claude-code/.claude-plugin/marketplace.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/.claude-plugin/
+install -m 0644 adapters/tokenless/claude-code/.claude-plugin/plugin.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/.claude-plugin/
+install -m 0644 adapters/tokenless/claude-code/hooks/hooks.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/hooks/
+install -m 0755 adapters/tokenless/claude-code/hooks/run-hook.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/hooks/
+install -m 0755 adapters/tokenless/claude-code/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/
+install -m 0755 adapters/tokenless/claude-code/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/
+install -m 0755 adapters/tokenless/claude-code/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/
+
+# Install Codex plugin (manifest + hooks.json + install scripts + Python hooks)
+install -m 0644 adapters/tokenless/codex/.codex-plugin/plugin.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/.codex-plugin/
+install -m 0644 adapters/tokenless/codex/hooks/hooks.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/hooks/
+install -m 0755 adapters/tokenless/codex/scripts/check-tokenless %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/compress-response %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/rewrite-hook %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/tool-ready %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/_common.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+install -m 0755 adapters/tokenless/codex/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
+
 # Install cosh extension for auto-discovery at /usr/share/anolisa/extensions/tokenless/
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands
@@ -124,6 +166,18 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %dir %{_datadir}/anolisa/adapters/tokenless/openclaw/dist
 %dir %{_datadir}/anolisa/adapters/tokenless/hermes
 %dir %{_datadir}/anolisa/adapters/tokenless/hermes/scripts
+%dir %{_datadir}/anolisa/adapters/tokenless/qoder
+%dir %{_datadir}/anolisa/adapters/tokenless/qoder/.qoder-plugin
+%dir %{_datadir}/anolisa/adapters/tokenless/qoder/scripts
+%dir %{_datadir}/anolisa/adapters/tokenless/qoder/commands
+%dir %{_datadir}/anolisa/adapters/tokenless/claude-code
+%dir %{_datadir}/anolisa/adapters/tokenless/claude-code/.claude-plugin
+%dir %{_datadir}/anolisa/adapters/tokenless/claude-code/hooks
+%dir %{_datadir}/anolisa/adapters/tokenless/claude-code/scripts
+%dir %{_datadir}/anolisa/adapters/tokenless/codex
+%dir %{_datadir}/anolisa/adapters/tokenless/codex/.codex-plugin
+%dir %{_datadir}/anolisa/adapters/tokenless/codex/hooks
+%dir %{_datadir}/anolisa/adapters/tokenless/codex/scripts
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/manifest.json
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tool-ready-spec.json
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/cosh-extension.json
@@ -142,6 +196,32 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/scripts/detect.sh
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/scripts/install.sh
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/hermes/scripts/uninstall.sh
+# Qoder CLI plugin
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/qoder/.qoder-plugin/plugin.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/qoder/hooks.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/qoder/commands/tokenless-stats.toml
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qoder/scripts/detect.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qoder/scripts/install.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qoder/scripts/uninstall.sh
+# Claude Code plugin
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/.claude-plugin/marketplace.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/.claude-plugin/plugin.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/hooks/hooks.json
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/hooks/run-hook.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/detect.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/install.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/uninstall.sh
+# Codex plugin
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/.codex-plugin/plugin.json
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/hooks/hooks.json
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/check-tokenless
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/compress-response
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/rewrite-hook
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/tool-ready
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/_common.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/detect.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/install.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/uninstall.sh
 # Cosh extension — auto-discovered from /usr/share/anolisa/extensions/
 %dir %{_datadir}/anolisa/extensions
 %dir %{_datadir}/anolisa/extensions/tokenless
@@ -170,40 +250,121 @@ rm -rf "$HOME/.copilot-shell/extensions/tokenless" 2>/dev/null || true
 # Clean up stale hermes-plugin dir (renamed to hermes/ with scripts)
 rm -rf "/usr/share/anolisa/adapters/tokenless/hermes-plugin" 2>/dev/null || true
 rm -rf "$HOME/.local/share/anolisa/adapters/tokenless/hermes-plugin" 2>/dev/null || true
-# Clean up stale paths from v0.3.2 RPM layout (libexec/tokenless -> libexec/anolisa/tokenless)
-rm -rf "/usr/libexec/tokenless" 2>/dev/null || true
-rm -rf "/usr/share/tokenless" 2>/dev/null || true
+# Clean up old openclaw plugin id (tokenless-openclaw → tokenless rename).
+# Runs on both install ($1=1) and upgrade ($1=2) — a fresh install simply
+# finds nothing to delete; an upgrade from a pre-rename build leaves a dead
+# extension dir and config entries that would shadow the new registration.
+rm -rf "$HOME/.openclaw/extensions/tokenless-openclaw" 2>/dev/null || true
+OPENCLAW_CFG="$HOME/.openclaw/openclaw.json"
+if [ -f "$OPENCLAW_CFG" ] && command -v jq &>/dev/null; then
+    cp -p "$OPENCLAW_CFG" "${OPENCLAW_CFG}.anolisa-bak" 2>/dev/null || true
+    if jq '(.plugins.allow // [] | map(select(. != "tokenless-openclaw"))) as $allow |
+        (.plugins.entries // {} | del(.["tokenless-openclaw"])) as $entries |
+        .plugins.allow = $allow | .plugins.entries = $entries' \
+        "$OPENCLAW_CFG" > "${OPENCLAW_CFG}.tmp" 2>/dev/null; then
+        mv "${OPENCLAW_CFG}.tmp" "$OPENCLAW_CFG" 2>/dev/null || \
+            rm -f "${OPENCLAW_CFG}.tmp" 2>/dev/null || true
+    else
+        rm -f "${OPENCLAW_CFG}.tmp" 2>/dev/null || true
+    fi
+fi
 hash -r 2>/dev/null || true
 
 %preun
-# On uninstall ($1=0): clean openclaw plugin and stale config entries
+# On uninstall ($1=0): clean qodercli, codex, openclaw, and hermes plugins
 if [ $1 -eq 0 ]; then
-    PLUGIN_DIR="$HOME/.openclaw/extensions/tokenless-openclaw"
+    # --- Qoder CLI plugin cleanup ---
+    QODER_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/qoder/scripts/uninstall.sh"
+    if [ -x "$QODER_SCRIPT" ]; then
+        bash "$QODER_SCRIPT" || true
+    fi
+    for cache_dir in "$HOME/.qoder/plugins/cache/local/tokenless" \
+                     "$HOME/.qoder/plugins/cache/local/tokenless-qoder"; do
+        if [ -d "$cache_dir" ]; then
+            rm -rf "$cache_dir" || true
+        fi
+    done
+
+    # --- Codex plugin cleanup ---
+    CODEX_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/codex/scripts/uninstall.sh"
+    if [ -x "$CODEX_SCRIPT" ]; then
+        bash "$CODEX_SCRIPT" --non-interactive || true
+    fi
+    for cache_dir in "$HOME/.codex/plugins/cache/local/tokenless" \
+                     "$HOME/.codex/plugins/cache/local/tokenless-codex"; do
+        if [ -d "$cache_dir" ]; then
+            rm -rf "$cache_dir" || true
+        fi
+    done
+
+    # --- OpenClaw plugin cleanup ---
+    PLUGIN_DIR="$HOME/.openclaw/extensions/tokenless"
     if [ -d "$PLUGIN_DIR" ]; then
         if command -v openclaw &>/dev/null; then
-            openclaw plugins uninstall tokenless-openclaw --force || true
+            openclaw plugins uninstall tokenless --force || true
         else
             rm -rf "$PLUGIN_DIR" || true
         fi
     fi
-    # Remove stale config entries from openclaw.json even if openclaw CLI is unavailable
     OPENCLAW_CFG="$HOME/.openclaw/openclaw.json"
     if [ -f "$OPENCLAW_CFG" ] && command -v jq &>/dev/null; then
-        jq '(.plugins.allow // [] | map(select(. != "tokenless-openclaw"))) as $allow |
-            (.plugins.entries // {} | del(.["tokenless-openclaw"])) as $entries |
+        jq '(.plugins.allow // [] | map(select(. != "tokenless"))) as $allow |
+            (.plugins.entries // {} | del(.["tokenless"])) as $entries |
             .plugins.allow = $allow | .plugins.entries = $entries' \
             "$OPENCLAW_CFG" > "${OPENCLAW_CFG}.tmp" && mv "${OPENCLAW_CFG}.tmp" "$OPENCLAW_CFG"
     fi
-    # Uninstall hermes plugin (disable + remove via hermes CLI or manual cleanup)
+
+    # --- Hermes plugin cleanup ---
     HERMES_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/hermes/scripts/uninstall.sh"
     if [ -f "$HERMES_SCRIPT" ]; then
         bash "$HERMES_SCRIPT" || true
     elif [ -d "$HOME/.hermes/plugins/tokenless" ]; then
         rm -rf "$HOME/.hermes/plugins/tokenless" 2>/dev/null || true
     fi
+
+    # --- Claude Code plugin cleanup ---
+    CLAUDE_CODE_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/uninstall.sh"
+    if [ -f "$CLAUDE_CODE_SCRIPT" ]; then
+        bash "$CLAUDE_CODE_SCRIPT" || true
+    fi
 fi
 
 %changelog
+* Mon Jun 08 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.5.0-1
+- feat(tokenless): add Claude Code adapter plugin
+- feat(tokenless): add codex adapter plugin
+- feat(tokenless): add qoder CLI adapter
+- feat(tokenless): add selective-claw context engine plugin
+- feat(tokenless): add Hermes adapter runner
+- fix(tokenless): add input size limit and validate db path
+- fix(tokenless): address review findings for selective-claw plugin
+- fix(tokenless): address review findings — trailing newline, chmod guard, rate-limited log
+- fix(tokenless): add subprocess returncode checks and extract shared hook utilities
+- fix(tokenless): anchor home lookup on getpwuid_r and trust-check candidate binaries
+- fix(tokenless): bound SchemaCompressor recursion to prevent stack overflow
+- fix(tokenless): compress-schema on array input
+- fix(tokenless): dedup rewrite_hook, import from hook_utils
+- fix(tokenless): drop TOON wrapper prefix and slim diagnostic tags
+- fix(tokenless): error on TTY stdin instead of hang
+- fix(tokenless): fix compression pipeline output inflation, truncation and hook timeouts
+- fix(tokenless): harden env-fix install paths with uid trust check and divert stderr to log
+- fix(tokenless): harden env-fix, version extraction, file trust, schema, permissions
+- fix(tokenless): harden hook exit-code handling + trust model consistency
+- fix(tokenless): make env attribution reachable for skip-tools entries
+- fix(tokenless): only warn on truly unexpected rtk exit codes
+- fix(tokenless): propagate env-fix subprocess failures instead of returning stdout
+- fix(tokenless): recover from poisoned mutex in stats recorder instead of failing
+- fix(tokenless): remove invalid "2" dependency from selective-claw
+- fix(tokenless): reserve truncation marker length in response compressor
+- fix(tokenless): restore indentation in compress_response_hook.py
+- fix(tokenless): secure resolveBinaryPath and improve binary cache invalidation
+- fix(tokenless): secure shell variable interpolation in env-fix and hooks
+- fix(tokenless): stats command syntax
+- fix(tokenless): unify rtk rewrite exit code 3 handling across adapters
+- fix(tokenless): use mktemp in tests and safe home expansion
+- fix(tokenless): warn when compression is skipped
+- refactor(tokenless): rename openclaw plugin Name to Tokenless and ID to tokenless
+
 * Wed May 27 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.4.1-1
 - fix(tokenless): derive adapter plugin versions from Cargo.toml instead of hardcoding
 - fix(tokenless): normalize adapter version numbers to 0.4.0

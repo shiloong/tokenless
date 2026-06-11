@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.5.0
+Version:        0.5.1
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -32,7 +32,7 @@ Core Features:
 The package includes:
 - tokenless: CLI tool for schema/response compression and toon integration
 - rtk: High-performance CLI proxy for command rewriting (Apache-2.0 licensed)
-- toon: JSON to TOON format encoder/decoder for LLM token optimization
+- toon: JSON to TOON format encoder/decoder for LLM token optimization (toon-format v0.5.0)
 
 Note: OpenClaw plugin is available under /usr/share/anolisa/adapters/tokenless/openclaw/.
 Copilot-shell extension is auto-discovered from /usr/share/anolisa/extensions/tokenless/.
@@ -89,6 +89,7 @@ install -m 0755 adapters/tokenless/common/tokenless-env-fix.sh %{buildroot}%{_da
 install -m 0644 adapters/tokenless/common/cosh-extension.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
 install -m 0755 adapters/tokenless/common/hooks/*.py %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/hooks/
 install -m 0755 adapters/tokenless/common/hooks/*.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/hooks/
+install -m 0644 adapters/tokenless/common/hooks/tool_categories.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/hooks/
 install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/commands/
 install -m 0755 adapters/tokenless/openclaw/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/
 install -m 0755 adapters/tokenless/openclaw/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/
@@ -141,6 +142,7 @@ install -m 0644 adapters/tokenless/common/tool-ready-spec.json %{buildroot}%{_da
 install -m 0755 adapters/tokenless/common/tokenless-env-fix.sh %{buildroot}%{_datadir}/anolisa/extensions/tokenless/
 install -m 0755 adapters/tokenless/common/hooks/*.py %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
 install -m 0755 adapters/tokenless/common/hooks/*.sh %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
+install -m 0644 adapters/tokenless/common/hooks/tool_categories.json %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks/
 install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands/
 
 %files
@@ -184,6 +186,7 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tokenless-env-fix.sh
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/hooks/*.py
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/hooks/*.sh
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/hooks/tool_categories.json
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/commands/tokenless-stats.toml
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/detect.sh
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/openclaw/scripts/install.sh
@@ -232,6 +235,7 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %attr(0755,root,root) %{_datadir}/anolisa/extensions/tokenless/tokenless-env-fix.sh
 %attr(0755,root,root) %{_datadir}/anolisa/extensions/tokenless/hooks/*.py
 %attr(0755,root,root) %{_datadir}/anolisa/extensions/tokenless/hooks/*.sh
+%attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/hooks/tool_categories.json
 %attr(0644,root,root) %{_datadir}/anolisa/extensions/tokenless/commands/tokenless-stats.toml
 
 %post
@@ -330,6 +334,11 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Thu Jun 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.5.1-1
+- chore(tokenless): upgrade rtk to v0.42.3 and toon-format to 0.5.0
+- fix(tokenless): add rtk grep fallback pattern fix patch
+- fix(tokenless): add rtk pytest error report patch
+
 * Mon Jun 08 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.5.0-1
 - feat(tokenless): add Claude Code adapter plugin
 - feat(tokenless): add codex adapter plugin

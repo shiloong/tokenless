@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.5.1
+Version:        0.6.0
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -43,6 +43,9 @@ Claude Code plugin (RTK command rewriting, response/TOON compression, and Tool R
 environment pre-check) is available under /usr/share/anolisa/adapters/tokenless/claude-code/.
 Register it with the official `claude plugin marketplace add` / `claude plugin install`
 CLI, or run the install script: claude-code/scripts/install.sh
+Qwen Code plugin (RTK command rewriting, response/TOON compression, and Tool Ready
+environment pre-check) is available under /usr/share/anolisa/adapters/tokenless/qwencode/.
+Register it with `qwen extensions link`, or run the install script: qwencode/scripts/install.sh
 
 %prep
 %setup -q -n tokenless
@@ -65,6 +68,8 @@ mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts
 mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/.codex-plugin
 mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/hooks
 mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/hooks
+mkdir -p %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/scripts
 mkdir -p %{buildroot}%{_docdir}/tokenless
 
 # Install pre-compiled binaries — tokenless to /usr/bin, helpers to /usr/libexec/anolisa/tokenless
@@ -134,6 +139,13 @@ install -m 0755 adapters/tokenless/codex/scripts/detect.sh %{buildroot}%{_datadi
 install -m 0755 adapters/tokenless/codex/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
 install -m 0755 adapters/tokenless/codex/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/codex/scripts/
 
+# Install Qwen Code plugin (qwen-extension manifest + wrapper hook + scripts)
+install -m 0644 adapters/tokenless/qwencode/qwen-extension.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/
+install -m 0755 adapters/tokenless/qwencode/hooks/run-hook.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/hooks/
+install -m 0755 adapters/tokenless/qwencode/scripts/detect.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/
+install -m 0755 adapters/tokenless/qwencode/scripts/install.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/
+install -m 0755 adapters/tokenless/qwencode/scripts/uninstall.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/
+
 # Install cosh extension for auto-discovery at /usr/share/anolisa/extensions/tokenless/
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/hooks
 mkdir -p %{buildroot}%{_datadir}/anolisa/extensions/tokenless/commands
@@ -180,6 +192,9 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %dir %{_datadir}/anolisa/adapters/tokenless/codex/.codex-plugin
 %dir %{_datadir}/anolisa/adapters/tokenless/codex/hooks
 %dir %{_datadir}/anolisa/adapters/tokenless/codex/scripts
+%dir %{_datadir}/anolisa/adapters/tokenless/qwencode
+%dir %{_datadir}/anolisa/adapters/tokenless/qwencode/hooks
+%dir %{_datadir}/anolisa/adapters/tokenless/qwencode/scripts
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/manifest.json
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tool-ready-spec.json
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/cosh-extension.json
@@ -225,6 +240,12 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/detect.sh
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/install.sh
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/codex/scripts/uninstall.sh
+# Qwen Code plugin
+%attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/qwencode/qwen-extension.json
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qwencode/hooks/run-hook.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/detect.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/install.sh
+%attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/uninstall.sh
 # Cosh extension — auto-discovered from /usr/share/anolisa/extensions/
 %dir %{_datadir}/anolisa/extensions
 %dir %{_datadir}/anolisa/extensions/tokenless
@@ -331,9 +352,36 @@ if [ $1 -eq 0 ]; then
     if [ -f "$CLAUDE_CODE_SCRIPT" ]; then
         bash "$CLAUDE_CODE_SCRIPT" || true
     fi
+
+    # --- Qwen Code plugin cleanup ---
+    QWENCODE_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/qwencode/scripts/uninstall.sh"
+    if [ -x "$QWENCODE_SCRIPT" ]; then
+        bash "$QWENCODE_SCRIPT" || true
+    fi
+    # Clean up extension cache directory (residual linked extension).
+    for cache_dir in "$HOME/.qwen/extensions/tokenless"; do
+        if [ -d "$cache_dir" ]; then
+            rm -rf "$cache_dir" || true
+        fi
+    done
 fi
 
 %changelog
+* Mon Jun 29 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.6.0-1
+- feat(tokenless): add qwencode adapter for Qwen Code extension
+- feat(tokenless): add SLS JSONL data collection with config toggle
+- feat(tokenless): add compression toggle with dry-run compare mode
+- feat(tokenless): enable SLS recording by default and document usage
+- feat(tokenless): expand RPM component contract (bundle.entry + hermes)
+- fix(tokenless): prefer tool_call_id over internal tool_use_id for qwencode hooks
+- fix(tokenless): make SLS writer append-only and skip when log file absent
+- fix(tokenless): align compression mode serde/db form and dedup config load
+- fix(tokenless): add trusted FHS fallback paths for hook_utils import in codex scripts
+- fix(tokenless): add absolute saved values + schema version to JSON output
+- fix(tokenless): use import.meta.dirname instead of __dirname in openclaw plugin
+- chore(tokenless): bump vendored rtk to v0.43.0; rework pytest stderr-surfacing patch; drop grep-fallback-fix (root cause fixed upstream) and preflight-skip-python (reversed upstream)
+- chore(tokenless): sync toon-format to 0.5.0 in Makefile and spec
+
 * Thu Jun 11 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.5.1-1
 - chore(tokenless): upgrade rtk to v0.42.3 and toon-format to 0.5.0
 - fix(tokenless): add rtk grep fallback pattern fix patch

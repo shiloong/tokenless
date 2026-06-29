@@ -1,161 +1,131 @@
 #!/bin/bash
 # Token-Less RPM 打包脚本
-# 从 GitHub anolisa 下载源码，本地编译，打包二进制 + 资源文件构建 RPM
+# 从 anolisa monorepo 获取 tokenless 源码，本地编译二进制 + 生成适配器资源，打包构建 RPM。
+# 预编译模型：RPM 构建阶段只 install，不编译（供离线分发）。
 
 set -e
 
 REPO_URL="https://github.com/alibaba/anolisa.git"
-# 通过环境变量指定 TAG（如 tokenless/v0.3.0）或 VERSION（如 0.3.0）
-# 未指定时从 Cargo.toml 解析版本号，自动推断 release 分支
+# 通过环境变量指定 TAG（如 tokenless/v0.6.0）或 VERSION（如 0.6.0）
+# 未指定时从本地 anolisa Cargo.toml 解析版本号，自动推断 release 分支
 TAG="${TAG:-}"
 VERSION_HINT="${VERSION:-}"
+# 指向本地 anolisa 仓库根目录（避免从 GitHub 克隆）；未设置则浅克隆
+ANOLISA_DIR="${ANOLISA_DIR:-}"
+
 if [ -n "${TAG}" ]; then
     CLONE_REF="${TAG}"
+elif [ -n "${VERSION_HINT}" ]; then
+    MAJOR=$(echo "${VERSION_HINT}" | cut -d. -f1)
+    MINOR=$(echo "${VERSION_HINT}" | cut -d. -f2)
+    CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}.y"
 else
-    if [ -n "${VERSION_HINT}" ]; then
-        MAJOR=$(echo "${VERSION_HINT}" | cut -d. -f1)
-        MINOR=$(echo "${VERSION_HINT}" | cut -d. -f2)
+    LOCAL_CARGO="/root/anolisa/src/tokenless/Cargo.toml"
+    if [ -f "${LOCAL_CARGO}" ]; then
+        V=$(grep -E 'version\s*=' "${LOCAL_CARGO}" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
+        MAJOR=$(echo "${V}" | cut -d. -f1)
+        MINOR=$(echo "${V}" | cut -d. -f2)
         CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}.y"
     else
-        # 解析本地 anolisa Cargo.toml 推断版本，回退到 main
-        LOCAL_CARGO="/root/anolisa/src/tokenless/Cargo.toml"
-        if [ -f "${LOCAL_CARGO}" ]; then
-            V=$(grep -E 'version\s*=' "${LOCAL_CARGO}" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
-            if [ -n "${V}" ]; then
-                MAJOR=$(echo "${V}" | cut -d. -f1)
-                MINOR=$(echo "${V}" | cut -d. -f2)
-                CLONE_REF="release/tokenless/v${MAJOR}.${MINOR}.y"
-            else
-                CLONE_REF="main"
-            fi
-        else
-            CLONE_REF="main"
-        fi
+        CLONE_REF="main"
     fi
 fi
+
 WORKSPACE_DIR="$PWD"
 TEMP_DIR="${WORKSPACE_DIR}/.tokenless-build-$$"
 OUTPUT_DIR="${WORKSPACE_DIR}/packages"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log_info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-cleanup() {
-    log_info "清理临时目录..."
-    rm -rf "${TEMP_DIR}"
-}
+cleanup() { log_info "清理临时目录..."; rm -rf "${TEMP_DIR}"; }
 trap cleanup EXIT
 
 main() {
     log_info "=========================================="
     log_info "Token-Less RPM 打包（本地编译模式）"
-    log_info "源码: ${REPO_URL} @ ${CLONE_REF}"
+    [ -n "${ANOLISA_DIR}" ] && log_info "源码: 本地 ${ANOLISA_DIR}" || log_info "源码: ${REPO_URL} @ ${CLONE_REF}"
     log_info "=========================================="
 
-    if ! command -v cargo &> /dev/null; then
-        log_error "未找到 cargo，请先安装 Rust (>= 1.88)"
-        exit 1
-    fi
+    command -v cargo &> /dev/null || { log_error "未找到 cargo，请先安装 Rust (>= 1.88)"; exit 1; }
+    command -v just &> /dev/null || { log_error "未找到 just（rtk setup 需要）"; exit 1; }
     log_info "Cargo: $(cargo --version 2>&1 | awk '{print $2}') (需要 >= 1.88)"
 
     mkdir -p "${OUTPUT_DIR}" "${TEMP_DIR}"
 
-    # === 1. 克隆源码 ===
-    log_info "步骤 1: 克隆 anolisa (${CLONE_REF})..."
-    cd "${TEMP_DIR}"
-    git clone --branch "${CLONE_REF}" --depth 1 "${REPO_URL}" anolisa || {
-        log_error "无法克隆 ${REPO_URL} @ ${CLONE_REF}"
-        exit 1
-    }
-
-    # === 2. 初始化 submodule ===
-    log_info "步骤 2: 初始化 submodule (rtk + toon)..."
-    cd "${TEMP_DIR}/anolisa"
-    git submodule update --init --recursive src/tokenless/third_party/rtk src/tokenless/third_party/toon 2>/dev/null || {
-        log_warn "submodule 更新失败，请检查网络"
-    }
-
-    # === 3. 解析版本号 ===
-    VERSION=$(grep -E 'version\s*=' "src/tokenless/Cargo.toml" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
-    if [ -z "$VERSION" ]; then
-        log_error "无法从 Cargo.toml 解析版本号"
-        exit 1
+    # === 1. 获取源码 ===
+    if [ -n "${ANOLISA_DIR}" ]; then
+        [ -f "${ANOLISA_DIR}/src/tokenless/Cargo.toml" ] || { log_error "ANOLISA_DIR/src/tokenless/Cargo.toml 不存在"; exit 1; }
+        SRCDIR="${ANOLISA_DIR}/src/tokenless"
+        log_info "步骤 1: 使用本地 anolisa 源码 ${SRCDIR}"
+    else
+        log_info "步骤 1: 克隆 anolisa (${CLONE_REF})..."
+        git clone --branch "${CLONE_REF}" --depth 1 "${REPO_URL}" "${TEMP_DIR}/anolisa" || { log_error "克隆失败"; exit 1; }
+        SRCDIR="${TEMP_DIR}/anolisa/src/tokenless"
     fi
+
+    # === 2. setup rtk（clone + patch，幂等：已存在则跳过）===
+    log_info "步骤 2: setup rtk (just setup-rtk)..."
+    (cd "${SRCDIR}" && just setup-rtk)
+
+    # === 3. 生成适配器模板（.in -> manifest.json/plugin.json/...）===
+    log_info "步骤 3: stamp adapter templates (make stamp-adapter-templates)..."
+    (cd "${SRCDIR}" && make stamp-adapter-templates)
+
+    # === 4. 编译 OpenClaw TS 插件 -> dist/index.js ===
+    log_info "步骤 4: build openclaw plugin (make build-openclaw-plugin)..."
+    (cd "${SRCDIR}" && make build-openclaw-plugin)
+
+    # === 5. 编译二进制 ===
+    log_info "步骤 5: 编译 tokenless..."
+    (cd "${SRCDIR}" && cargo build --release 2>&1 | tail -3)
+    log_info "步骤 6: 编译 rtk..."
+    (cd "${SRCDIR}" && cargo build --release --manifest-path third_party/rtk/Cargo.toml 2>&1 | tail -3)
+    log_info "步骤 7: 编译 toon (cargo install toon-format 0.5.0)..."
+    cargo install toon-format --version 0.5.0 --root "${TEMP_DIR}/toon-root" --locked 2>&1 | tail -3
+
+    # === 6. 解析版本号 ===
+    VERSION=$(grep -E 'version\s*=' "${SRCDIR}/Cargo.toml" | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
+    [ -n "$VERSION" ] || { log_error "无法解析版本号"; exit 1; }
     log_info "上游版本: ${VERSION}"
-    SRCDIR="${TEMP_DIR}/anolisa/src/tokenless"
 
-    # === 4. 应用 RTK patch ===
-    log_info "步骤 3: 应用 RTK patch..."
-    patch --forward -p1 --no-backup-if-mismatch -d "${SRCDIR}/third_party/rtk" < "${SRCDIR}/third_party/patches/rtk-tokenless-stats.patch" 2>&1 || {
-        log_info "patch 已应用或无需应用"
-    }
-
-    # === 5. 本地编译 ===
-    log_info "步骤 4: 编译 tokenless..."
-    cd "${SRCDIR}"
-    cargo build --release 2>&1 | tail -3
-
-    log_info "步骤 5: 编译 rtk..."
-    cargo build --release --manifest-path third_party/rtk/Cargo.toml 2>&1 | tail -3
-
-    log_info "步骤 6: 编译 toon..."
-    cargo build --release --manifest-path third_party/toon/Cargo.toml --features cli 2>&1 | tail -3
-
-    # === 6. 准备打包目录 ===
-    log_info "步骤 7: 准备打包目录..."
+    # === 7. 准备打包目录（spec 期望的扁平布局）===
+    log_info "步骤 8: 准备打包目录..."
     PKG="${TEMP_DIR}/tokenless"
-    mkdir -p "${PKG}/bin"
+    mkdir -p "${PKG}/bin" "${PKG}/adapters" "${PKG}/docs"
 
     cp "${SRCDIR}/target/release/tokenless" "${PKG}/bin/"
     cp "${SRCDIR}/third_party/rtk/target/release/rtk" "${PKG}/bin/"
-    cp "${SRCDIR}/third_party/toon/target/release/toon" "${PKG}/bin/"
+    cp "${TEMP_DIR}/toon-root/bin/toon" "${PKG}/bin/"
 
-    cp -r "${SRCDIR}/openclaw" "${PKG}/"
+    cp -r "${SRCDIR}/adapters/tokenless" "${PKG}/adapters/"
+    # 清理 .in 模板、node_modules、__pycache__
+    find "${PKG}/adapters" -name "*.in" -delete
+    find "${PKG}/adapters" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find "${PKG}/adapters" -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
 
-    # Compile openclaw index.ts -> index.js (esbuild or sed fallback)
-    log_info "步骤 7.1: 编译 openclaw index.ts -> index.js..."
-    if command -v npx &> /dev/null; then
-        npx --yes esbuild "${PKG}/openclaw/index.ts" --bundle --platform=node --format=esm --outfile="${PKG}/openclaw/index.js" 2>/dev/null \
-            && { log_info "  index.js 编译完成 (esbuild)"; rm -f "${PKG}/openclaw/index.ts"; } \
-            || { sed 's/: any//g; s/: string//g; s/: boolean | null/: any/g; s/: Record<string, unknown>//g; s/: { [^}]*}//g' "${PKG}/openclaw/index.ts" > "${PKG}/openclaw/index.js" \
-            && log_info "  index.js 编译完成 (sed fallback)"; rm -f "${PKG}/openclaw/index.ts"; }
-    else
-        sed 's/: any//g; s/: string//g; s/: boolean | null/: any/g; s/: Record<string, unknown>//g; s/: { [^}]*}//g' "${PKG}/openclaw/index.ts" > "${PKG}/openclaw/index.js" \
-            && { log_info "  index.js 编译完成 (sed fallback)"; rm -f "${PKG}/openclaw/index.ts"; }
-    fi
-
-    cp -r "${SRCDIR}/cosh-extension" "${PKG}/"
-    cp -r "${SRCDIR}/core" "${PKG}/"
-    cp -r "${SRCDIR}/scripts" "${PKG}/"
-    cp -r "${SRCDIR}/docs" "${PKG}/"
+    cp "${SRCDIR}/docs/tokenless-user-manual-en.md" "${PKG}/docs/"
+    cp "${SRCDIR}/docs/tokenless-user-manual-zh.md" "${PKG}/docs/"
+    cp "${SRCDIR}/docs/response-compression.md" "${PKG}/docs/"
     cp "${SRCDIR}/LICENSE" "${PKG}/"
 
-    # Remove __pycache__ from cosh-extension hooks
-    rm -rf "${PKG}/cosh-extension/hooks/__pycache__"
+    log_info "打包目录:"; ls "${PKG}/bin/"
 
-    log_info "打包目录: ${PKG}"
-    ls "${PKG}/bin/"
-
-    # === 7. 打 tar 包 ===
-    log_info "步骤 8: 创建源码包..."
+    # === 8. 打 tar 包 ===
+    log_info "步骤 9: 创建源码包..."
     cd "${TEMP_DIR}"
     TARBALL_NAME="tokenless-${VERSION}.tar.gz"
     tar -czf "${OUTPUT_DIR}/${TARBALL_NAME}" tokenless
     cp "${OUTPUT_DIR}/${TARBALL_NAME}" "${WORKSPACE_DIR}/"
     log_info "打包完成: ${OUTPUT_DIR}/${TARBALL_NAME} ($(du -h "${OUTPUT_DIR}/${TARBALL_NAME}" | cut -f1))"
 
-    # === 8. 构建 RPM ===
-    log_info "步骤 9: 构建 RPM..."
+    # === 9. 构建 RPM ===
+    log_info "步骤 10: 构建 RPM..."
     mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
     cp "${OUTPUT_DIR}/${TARBALL_NAME}" ~/rpmbuild/SOURCES/
     cp "${WORKSPACE_DIR}/tokenless.spec" ~/rpmbuild/SPECS/tokenless.spec
-
     cd ~/rpmbuild
     rpmbuild -ba --nodeps SPECS/tokenless.spec 2>&1 || { log_error "RPM 构建失败"; exit 1; }
 

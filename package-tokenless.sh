@@ -43,6 +43,55 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 cleanup() { log_info "清理临时目录..."; rm -rf "${TEMP_DIR}"; }
 trap cleanup EXIT
 
+# Extract normalized destination paths from a spec's %files section.
+# Strips %attr/%defattr/%dir/%doc/%license modifiers and comments so entries
+# differing only in formatting (e.g. "%attr(0755,root,root) %{_bindir}/rtk" vs
+# "%{_bindir}/rtk") compare equal. A bare "%{_bindir}/rtk" path is NOT mistaken
+# for a section header because section headers are "%word" (letters only).
+extract_files_paths() {
+    awk '
+        /^%files[[:space:]]*$/ { in_files=1; next }
+        in_files && /^%[a-zA-Z]+[[:space:]]*$/ { in_files=0; next }
+        in_files {
+            line=$0
+            sub(/#.*/, "", line)
+            gsub(/%attr\([^)]*\)[[:space:]]*/, "", line)
+            gsub(/%defattr\([^)]*\)[[:space:]]*/, "", line)
+            sub(/^%dir[[:space:]]+/, "", line)
+            sub(/^%doc[[:space:]]+/, "", line)
+            sub(/^%license[[:space:]]+/, "", line)
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line != "") print line
+        }
+    ' "$1" | sort -u
+}
+
+# Hard-fail if the build-repo tokenless.spec %files manifest is missing any
+# destination path declared by the source tokenless.spec.in. The build-repo
+# spec is an install-only variant (no %build, pre-compiled binaries from the
+# tarball), so %install source paths legitimately differ — but the %files
+# destination set must be a superset of the source's, otherwise files declared
+# by the source (e.g. component.toml) get silently dropped from the RPM.
+sync_check_spec_files() {
+    local src_spec_in="${SRCDIR}/tokenless.spec.in"
+    local pkg_spec="${WORKSPACE_DIR}/tokenless.spec"
+    [ -f "$src_spec_in" ] || { log_error "源码 spec.in 不存在: $src_spec_in"; exit 1; }
+    [ -f "$pkg_spec" ]    || { log_error "构建仓 spec 不存在: $pkg_spec"; exit 1; }
+
+    local src_files pkg_files missing
+    src_files=$(extract_files_paths "$src_spec_in")
+    pkg_files=$(extract_files_paths "$pkg_spec")
+    missing=$(comm -23 <(printf '%s\n' "$src_files") <(printf '%s\n' "$pkg_files"))
+    if [ -n "$missing" ]; then
+        log_error "构建仓 tokenless.spec 的 %files 缺少源码 spec.in 声明的以下路径 (spec 漂移):"
+        printf '%s\n' "$missing" | sed 's/^/    /'
+        log_error "请在构建仓 tokenless.spec 的 %install 与 %files 段补齐上述路径，使其与源码 spec.in 同步后重试。"
+        exit 1
+    fi
+    log_info "spec %%files 同步校验通过 (源码 $(printf '%s\n' "$src_files" | wc -l) 项, 构建仓 $(printf '%s\n' "$pkg_files" | wc -l) 项)"
+}
+
 main() {
     log_info "=========================================="
     log_info "Token-Less RPM 打包（本地编译模式）"
@@ -65,6 +114,11 @@ main() {
         git clone --branch "${CLONE_REF}" --depth 1 "${REPO_URL}" "${TEMP_DIR}/anolisa" || { log_error "克隆失败"; exit 1; }
         SRCDIR="${TEMP_DIR}/anolisa/src/tokenless"
     fi
+
+    # Pre-flight: fail fast before compiling if the build-repo spec has drifted
+    # from the source spec.in (e.g. a newly shipped file like component.toml is
+    # missing from tokenless.spec's %files).
+    sync_check_spec_files
 
     # === 2. setup rtk（clone + patch，幂等：已存在则跳过）===
     log_info "步骤 2: setup rtk (just setup-rtk)..."
@@ -110,6 +164,12 @@ main() {
     cp "${SRCDIR}/docs/tokenless-user-manual-zh.md" "${PKG}/docs/"
     cp "${SRCDIR}/docs/response-compression.md" "${PKG}/docs/"
     cp "${SRCDIR}/LICENSE" "${PKG}/"
+
+    # Stage the RPM component contract (regenerated from .in by make
+    # stamp-adapter-templates in step 3). The install-only spec ships it from
+    # the tarball root: .anolisa/component.toml
+    mkdir -p "${PKG}/.anolisa"
+    cp "${SRCDIR}/.anolisa/component.toml" "${PKG}/.anolisa/"
 
     log_info "打包目录:"; ls "${PKG}/bin/"
 

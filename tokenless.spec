@@ -89,6 +89,11 @@ install -m 0644 LICENSE %{buildroot}%{_docdir}/tokenless/
 
 # Install adapter bundle (common hooks/spec + openclaw)
 install -m 0644 adapters/tokenless/manifest.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/
+# Install the tokenless RPM component contract (publishing/plugin metadata)
+# at the component-level path declared by the ANOLISA component-contract
+# model: %{_datadir}/anolisa/components/<component>/component.toml.
+install -d -m 0755 %{buildroot}%{_datadir}/anolisa/components/tokenless
+install -m 0644 .anolisa/component.toml %{buildroot}%{_datadir}/anolisa/components/tokenless/
 install -m 0644 adapters/tokenless/common/tool-ready-spec.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
 install -m 0755 adapters/tokenless/common/tokenless-env-fix.sh %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
 install -m 0644 adapters/tokenless/common/cosh-extension.json %{buildroot}%{_datadir}/anolisa/adapters/tokenless/common/
@@ -170,6 +175,8 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %doc %{_docdir}/tokenless/tokenless-user-manual-en.md
 %doc %{_docdir}/tokenless/tokenless-user-manual-zh.md
 %dir %{_datadir}/anolisa
+%dir %{_datadir}/anolisa/components
+%dir %{_datadir}/anolisa/components/tokenless
 %dir %{_datadir}/anolisa/adapters
 %dir %{_datadir}/anolisa/adapters/tokenless
 %dir %{_datadir}/anolisa/adapters/tokenless/common
@@ -196,6 +203,7 @@ install -m 0644 adapters/tokenless/common/commands/tokenless-stats.toml %{buildr
 %dir %{_datadir}/anolisa/adapters/tokenless/qwencode/hooks
 %dir %{_datadir}/anolisa/adapters/tokenless/qwencode/scripts
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/manifest.json
+%attr(0644,root,root) %{_datadir}/anolisa/components/tokenless/component.toml
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tool-ready-spec.json
 %attr(0644,root,root) %{_datadir}/anolisa/adapters/tokenless/common/cosh-extension.json
 %attr(0755,root,root) %{_datadir}/anolisa/adapters/tokenless/common/tokenless-env-fix.sh
@@ -351,6 +359,8 @@ if [ $1 -eq 0 ]; then
     CLAUDE_CODE_SCRIPT="%{_datadir}/anolisa/adapters/tokenless/claude-code/scripts/uninstall.sh"
     if [ -f "$CLAUDE_CODE_SCRIPT" ]; then
         bash "$CLAUDE_CODE_SCRIPT" || true
+        echo "WARN: per-user Claude Code plugin entries are not removed by RPM %preun." >&2
+        echo "WARN: each user running claude should run: claude plugin uninstall tokenless@anolisa" >&2
     fi
 
     # --- Qwen Code plugin cleanup ---

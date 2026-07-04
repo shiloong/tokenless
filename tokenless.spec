@@ -1,8 +1,8 @@
-%define anolis_release 1
+%define anolis_release 2
 %global debug_package %{nil}
 
 Name:           tokenless
-Version:        0.6.0
+Version:        0.6.1
 Release:        %{anolis_release}%{?dist}
 Summary:        LLM Token Optimization Toolkit - Schema/Response Compression + Command Rewriting + Tool Ready
 
@@ -377,6 +377,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sat Jul 04 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.6.1-2
+- fix(tokenless): sync stale version stamps to 0.6.1 (component.toml, cosh-extension.json, user-manual footers); bump anolis_release to 2
+
+* Sat Jul 04 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.6.1-1
+- fix(tokenless): use node: prefix, eliminate shell subprocess in openclaw plugin
+- fix(tokenless): bundle tool_categories.json into dist for npm installs
+
 * Mon Jun 29 2026 Shile Zhang <shile.zhang@linux.alibaba.com> - 0.6.0-1
 - feat(tokenless): add qwencode adapter for Qwen Code extension
 - feat(tokenless): add SLS JSONL data collection with config toggle
